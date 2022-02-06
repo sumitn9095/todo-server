@@ -5,7 +5,6 @@ const express = require("express");
   (dbConfig = require("./database/db"));
 
 const app = express();
-const PORT = 3000;
 
 app.set("view engine", "ejs");
 
@@ -55,7 +54,9 @@ app.use(express.json());
 app.use("/api", taskRoute);
 app.use("/api", userRoute);
 
-app.listen(3000, () => console.log(`Express running on port ${PORT}`));
+app.listen(process.env.PORT || `${PORT}`, () =>
+  console.log(`Express running on port ${PORT}`)
+);
 
 // let users = [
 //   {
