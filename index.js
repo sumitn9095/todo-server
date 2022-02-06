@@ -54,8 +54,8 @@ app.use(express.json());
 app.use("/api", taskRoute);
 app.use("/api", userRoute);
 
-app.listen(process.env.PORT || `${PORT}`, () =>
-  console.log(`Express running on port ${PORT}`)
+app.listen(process.env.PORT || 5000, () =>
+  console.log(`Express running on port ${process.env.PORT}`)
 );
 
 // let users = [
