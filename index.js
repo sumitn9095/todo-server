@@ -45,6 +45,7 @@ mongoose
 
 const userRoute = require("./routes/user.route");
 const taskRoute = require("./routes/task.route");
+const userDetails = require("./routes/userDetails.route");
 
 app.use(cors());
 app.use(express.static(path.join(__dirname, "dist/todo")));
@@ -53,34 +54,6 @@ app.use(express.json());
 
 app.use("/api", taskRoute);
 app.use("/api", userRoute);
+app.use("/api", userDetails);
 
-app.listen(process.env.PORT || 5000, () =>
-  console.log(`Express running on port ${process.env.PORT}`)
-);
-
-// let users = [
-//   {
-//     id: 1,
-//     name: "Sumit N",
-//     age: 32,
-//   },
-//   {
-//     id: 4,
-//     name: "Tim A",
-//     age: 25,
-//   },
-//   {
-//     id: 7,
-//     name: "Tina K",
-//     age: 22,
-//   },
-//   {
-//     id: 11,
-//     name: "Jason M",
-//     age: 34,
-//   },
-// ];
-
-//  mongodb+srv://sumitn9095:%23SN85951055@cluster0.jeq25.mongodb.net/todo?retryWrites=true&w=majority
-
-// mongodb://sumitn9095:%23SN85951055@cluster0-shard-00-00.jeq25.mongodb.net:27017,cluster0-shard-00-01.jeq25.mongodb.net:27017,cluster0-shard-00-02.jeq25.mongodb.net:27017/todo?ssl=true&replicaSet=atlas-8pnxsk-shard-0&authSource=admin&retryWrites=true&w=majority
+app.listen(5000, () => console.log(`Express running on port`, 5000));

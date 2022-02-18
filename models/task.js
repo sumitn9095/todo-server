@@ -12,6 +12,9 @@ let Task = new Schema(
     isOver: {
       type: Boolean,
     },
+    priority: {
+      type: Number,
+    },
   },
   {
     collection: "tasks",
