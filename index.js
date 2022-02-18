@@ -56,4 +56,9 @@ app.use("/api", taskRoute);
 app.use("/api", userRoute);
 app.use("/api", userDetails);
 
-app.listen(5000, () => console.log(`Express running on port`, 5000));
+// app.listen(5000, () => console.log(`Express running on port`, 5000));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Our app is running on port ${PORT}`);
+});
