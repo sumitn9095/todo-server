@@ -3,15 +3,32 @@ const Schema = mongoose.Schema;
 
 let User = new Schema(
   {
-    id: {
-      type: Number,
-    },
-    name: {
+    username: {
       type: String,
+      required: [true, "Name not provided"]
     },
-    age: {
-      type: Number,
+    email: {
+      type: String,
+      unique: [true, "Email already exists in db"],
+      lowercase: true,
+      trim: true,
+      required: [true, "Email not provided"],
+      validate: {
+        validator: (v) => {
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        },
+        message: 'This is not a valid email!'
+      },
     },
+      password: {
+        type: String,
+        required: true
+      },
+      created: {
+        type: Date,
+        default: Date.now
+      }
+    
   },
   {
     collection: "users",
