@@ -9,12 +9,32 @@ let Task = new Schema(
     date: {
       type: Date,
     },
+    dueDate: {
+      type: Date,
+    },
     isOver: {
       type: Boolean,
     },
     priority: {
       type: Number,
     },
+    email: {
+      type: mongoose.Schema.Types.String,
+      ref: "User"
+    },
+    description: {
+      type: String,
+    },
+    subTasks: {
+      type: Array,
+    },
+    category: {
+      type: mongoose.Schema.Types.Array,
+      ref: "Category"
+    },
+    imagePath: {
+      type: String
+    }
   },
   {
     collection: "tasks",

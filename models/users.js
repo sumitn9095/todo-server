@@ -20,15 +20,14 @@ let User = new Schema(
         message: 'This is not a valid email!'
       },
     },
-      password: {
-        type: String,
-        required: true
-      },
-      created: {
-        type: Date,
-        default: Date.now
-      }
-    
+    password: {
+      type: String,
+      required: true
+    },
+    created: {
+      type: Date,
+      default: Date.now
+    }
   },
   {
     collection: "users",

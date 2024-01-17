@@ -6,12 +6,17 @@ const userRoute = express.Router();
 require('dotenv').config();
 const { auth } =require("../middlewares");
 let User = require("../models/users");
+let Hobby = require("../models/hobby");
+// const { RefreshToken } = require("../models/refreshToken.model");
+const RefreshToken = require("../models/refreshToken.model");
+const { Error } = require("mongoose");
+// var { refreshToken: RefreshToken } = RefreshToken;
 
 userRoute.route("/").get((req, res) => {
   res.json("all users", res.data);
 });
 
-userRoute.route("/register").post(async (req, res)=> {
+userRoute.route("/register").post(async(req, res)=> {
   var { username, email, password } = req.body;
   // res.status(200).send({
   //   username, email, password
@@ -25,7 +30,14 @@ userRoute.route("/register").post(async (req, res)=> {
       email : email,
       password : bcrypt.hashSync(password, 8)
     })
-    .then(user => res.status(200).json({ message : 'User Created successfully', user}));
+    .then(user => {
+      const userId = user._id.toString();
+      Hobby.create({
+        name: "Walking",
+        priority: 1
+      })
+      res.status(200).json({ message : 'User Created successfully', user})
+    });
   } catch (err) {
     res.status(401).json({ message : err, error: err})
   }
@@ -33,25 +45,21 @@ userRoute.route("/register").post(async (req, res)=> {
 
 userRoute.route("/signin").post((req, res)=>{
   var { email, password } = req.body;
-  User.find({ email : email }, (error, data)=>{
-  var user = data[0];
+  User.find({ email : email }) .exec(async (err, user) =>{
+  var user = user[0];
    // res.status(200).send({ user : data[0]});
-    if(error) {
-      res.status(500).json({ message : error});
+    if(err) {
+      return res.status(500).json({ message : err}); 
     }
-    if(!user.username) {
-      res.status(500).json({ message : 'User not found' })
+    if(!user) {
+      return res.status(500).json({ message : `User not found with email '${email}'` })
     }
     var pwIsValid = bcrypt.compareSync(password, user.password);
     // res.status(200).send({ pwIsValid, secret121 : process.env.API_SECRET,  userPw : password, userDbPw : user.password});
     // return;
     if(!pwIsValid) return res.status(401).json({ message : 'Invalid password', token : null});
-    var token = jwt.sign({
-      id: user._id
-    }, process.env.API_SECRET, {
-      expiresIn : 86400
-    });
-
+    var token = jwt.sign({id: user._id}, process.env.API_SECRET, {expiresIn : process.env.JWTEXP});
+    var rt = await RefreshToken.createToken(user);
     res.status(200).send({
       user: {
         id: user._id,
@@ -59,10 +67,48 @@ userRoute.route("/signin").post((req, res)=>{
         email: user.email
       },
       message: "Login susscessful",
-      token: token
+      token: token,
+      refreshToken: rt
     })
   })
 })
+
+
+exports.refreshToken = async (req, res) => {
+  const { refreshToken: requestToken } = req.body;
+
+  if (requestToken == null) {
+    return res.status(403).json({ message: "Refresh Token is required!" });
+  }
+
+  try {
+    let refreshToken = await RefreshToken.findOne({ token: requestToken });
+    if (!refreshToken) {
+      res.status(403).json({ message: "Refresh token is not in database!" });
+      return;
+    }
+
+    if (RefreshToken.verifyExpiration(refreshToken)) {
+      RefreshToken.findByIdAndRemove(refreshToken._id, { useFindAndModify: false }).exec();
+      res.status(403).json({
+        message: "Refresh token was expired. Please make a new signin request",
+      });
+      return;
+    }
+
+    let newAccessToken = jwt.sign({ id: refreshToken.user._id }, process.env.API_SECRET, {
+      expiresIn: process.env.JWTEXP,
+    });
+
+    return res.status(200).json({
+      token: newAccessToken,
+      refreshToken: refreshToken.token,
+    });
+    
+  } catch (err) {
+    return res.status(500).send({ message: err });
+  }
+};
 
 userRoute.route("/").get((req, res, next) => {
   res.header(
@@ -71,6 +117,7 @@ userRoute.route("/").get((req, res, next) => {
   );
   next();
 })
+
 userRoute.route("/verify").get(auth.verify);
 
 // userRoute.route("/users").get((req, res) => {

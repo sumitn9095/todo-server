@@ -3,21 +3,40 @@ const app = express();
 const taskRoute = express.Router();
 const { auth } =require("../middlewares");
 let Task = require("../models/task");
+const EventEmitter = require('events');
+const myEmitter = new EventEmitter();
+const fs = require('fs');
+const path = require('path');
 var allTasks = "";
 
+getUser = async(req, res, next) => {
+  return User.findOne({ email : req }).exec();
+}
+
+saveTasks = () => {
+  fs.writeFile('./dd.txt', 'dasdsadad\n',{flag : 'a'},(err)=>{
+    if(err) console.log('some errorrrrrrrrrr',err);
+    else console.log('file write successful');
+  })
+}
+
+myEmitter.on('newTaskAdded', saveTasks);
+
+myEmitter.emit('newTaskAdded');
+
 fetchAll = (req, res, next) => {
-  Task.find((error, data) => {
+  Task.find({ email: req.body.email}, (error, data) => {
     if (error) {
       return next(error);
     } else {
-      allTasks = data;
-      res.json(data);
+     
+      res.status(200).send({data, message: "Tasks successfully retrieved"});
     }
   });
 };
 
-add = (req, res, next) => {
-    //console.log("req.body >>>> pppo", req.body);
+add = async(req, res, next) => {
+    // const user = await getUser();
     Task.create(req.body, (error, data) => {
       if (error) {
         return next(error);

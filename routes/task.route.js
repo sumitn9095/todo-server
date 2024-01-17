@@ -3,17 +3,15 @@ const app = express();
 const taskRoute = express.Router();
 const taskController = require("../controller/task.controller");
 const { auth } =require("../middlewares");
-let Task = require("../models/task");
-
-var allTasks = "";
 
 app.use(function(req, res, next) {
   res.header(
     "Access-Control-Allow-Headers",
-    "x-access-token, Origin, Content-Type, Accept"
+    "Authorization, Origin, Content-Type, Accept"
   );
   next();
 });
+
 taskRoute.route("/tasks").get([auth.verify], taskController.fetchAll );
 taskRoute.route("/add").post([auth.verify], taskController.add );
 taskRoute.route("/edit/:id").put([auth.verify], taskController.edit );
