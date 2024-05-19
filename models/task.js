@@ -38,7 +38,7 @@ let Task = new Schema(
   },
   {
     collection: "tasks",
-  }
+  },
+  { typeKey: '$type' }
 );
-
 module.exports = mongoose.model("Task", Task);

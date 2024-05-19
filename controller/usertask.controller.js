@@ -2,6 +2,7 @@ let Task = require("../models/task");
 let TaskDetails = require("../models/taskDetails");
 const excel = require("exceljs");
 const XLSX = require("xlsx");
+const fs = require("fs");
 
 qqq = async(data) => {
   return await data.map((o,i) => {
@@ -142,30 +143,68 @@ detail = (req, res, next) => {
     });
 };
 
+countDocumentsInCollection = (req,res,next) => {
+  let countDoc = 0;
+  let remainingDocsToInsert = 0;
+  Task.countDocuments({ email: req.body.email }, (err, taskCount) => {
+    if(err) {res.status(500).send({err, message: "Task count error"});}
+    else {
+      //console.log("count docs",taskCount);
+      if(taskCount >= 10) {
+        res.status(500).send({ error: true, type : "Task count exceeds" , message: "You have run out of tasks. The Task limit for every account is 10. Please delete previous tasks, if you want to create any new." });
+      } else {
+        res.status(200).send({ message: "Task count lower than limit." });
+      }
+    }
+  });
+  
+}
+
+removeImg = (req, res, next) => {
+  console.log("removeImg",req);
+  Task.findByIdAndUpdate(req.params.id, {$set: {imagePath : ""}}, (err, task) => {
+    if(err) res.status(500).send({err, message: "Error removing the task image"});
+    else res.status(200).send({ task, message: "Task image successfully removed"});
+  })
+}
+
 detailsSave = (req, res, next) => {
-  Task.findOne({ email : req.body.email}, (err0, data0) => {
+  Task.findOne({ email : req.body.email, taskname : req.body.taskname}, (err0, data0) => {
    const data_body = JSON.parse(JSON.stringify(req.body));
     if(err0) return res.status(500).send({ err0, message : "Error fetching user"});
     console.log("data0----------",data0);
-    if(data_body.email.length) {
+    if(data0.email.length) {
      console.log("detailsSave taskname ---------------",data_body);
      const { taskname, date, dueDate, description, subTasks, isOver, priority, category } = data_body;
-      let isOverBoolean = isOver === 'true' ? true : false;
-      let priorityNum = Number(priority);
-      let categoryArr = category.split(",");
-      let subTasksArr = subTasks.split(",");
+      // let isOverBoolean = isOver === 'true' ? true : false;
+      // let priorityNum = Number(priority);
+      let categoryArr = [];
+      categoryArr = category.split(",");
+      let subTasksArr = [];
+      subTasksArr = subTasks.split(",");
       
       // console.log("detailsSave ---------------",data_body,isOverBoolean,priorityNum,categoryArr,subTasksArr, imagePath);
 
-      let obj = { taskname, date, dueDate, description, subTasks : subTasksArr, isOver, priority, category : categoryArr };
-      if(req.file) obj = { taskname, date, dueDate, description, subTasks : subTasksArr, isOver, priority, category : categoryArr, imagePath : req.file.filename };
+      let obj = { taskname, date, dueDate, description, isOver, priority };
 
-      Task.findByIdAndUpdate(data0._id , {$set: obj }, (err, data) => {
-        data.img = 
+      if(req.file) obj = {taskname, date, dueDate, description, isOver, priority,  imagePath : req.file.filename};
+
+      if(category !== "") obj.category = categoryArr;
+      if(subTasks !== "") obj.subTasks = subTasksArr;
+
+      // if(category === "") delete obj.category;
+      // if(subTasks === "") delete obj.subTasks;
+
+      if(category === "") obj.category = [];
+      if(subTasks === "") obj.subTasks = [];
+
+      console.log("Updated - Task - Object",obj);
+
+      Task.findByIdAndUpdate(data0._id , {$set: obj}, (err, data) => {
         console.log("data0--dd--xx------",data);
         if(err) return res.status(500).send({ err, message : "Error creating Task Details"});
         res.status(200).send({ data, category, message : "Updated Task Details"});
-      })
+      });
 
       // TaskDetails.find({ taskId: _id },(err4, data4)=>{
       //     console.log("TaskDetails ---------------",err4,data4);
@@ -212,11 +251,9 @@ taskDelete = (req, res, next) => {
 
 downloadTasks = async(req, res, next) => {
   const { email,category,query} = req.body;
-
   try {
       var taskList = []
       //const taskList = await allTasksFetch(email);
-
       if(category) {
         taskList = await queryTasks(email,category,query);
       } else {
@@ -229,6 +266,12 @@ downloadTasks = async(req, res, next) => {
         views: [{ state: "frozen", xSplit: 1, ySplit: 1 }],
       });
       let columnJSON = JSON.parse(JSON.stringify(taskList[0]));
+
+      delete columnJSON._id;
+      // delete columnJSON.subTasks;
+      // delete columnJSON.imagePath;
+
+      console.log("columnJSON",columnJSON);
 
       //var column_name = [];
 
@@ -247,7 +290,7 @@ downloadTasks = async(req, res, next) => {
 
       worksheet.addRows(taskList);
 
-      ["A1","B1","C1","D1","E1","F1","G1","H1","I1"].forEach(cell => {
+      ["A1","B1","C1","D1","E1","F1","G1"].forEach(cell => {
         worksheet.getCell(cell).fill = {
           type: "pattern",
           pattern: "solid",
@@ -278,49 +321,91 @@ downloadTasks = async(req, res, next) => {
 
 }
 
-uploadTasks = (req, res, next) => {
-  console.log("Excel file",fileName);
+uploadTasks = async(req, res, next) => {
+
   try {
-    const WasteRiskDetailPendingUpdatesModel = Task;
-    let fileName = req.file.taskexcel;
-    let simulationID = fileName.split("upload_")[1];
-    simulationID = simulationID.replace(".xlsx", "");
-    console.log("Excel file",fileName);
-    let workbook = XLSX.readFile(`./public/xlsx/${fileName}`);
-    let sheetNames = workbook.SheetNames;
 
-    data = {
-      data: XLSX.utils.sheet_to_json(workbook.Sheets[sheetNames[0]], { raw: false, defval: "" }),
-    };
+    // countDocumentsInCollection(req.body.email)
+    // .then((r) => {
+    //   console.log("countDoc",r);
+    // }).catch((err) => {
+    //   console.log("err",err);
+    // })
 
-    if (data.data.length === 0) {
-      res.status(422).send({ message: 'Invalid File, please check and upload correct file', error: 'INVALID_FILE' });
-      /** Delete Upload Temp File */
-      fs.unlink(`public/xlsx/upload_${simulationID}.xlsx`, function (err) {
-        if (err) throw err;
-        // if no error, file has been deleted successfully
-        console.log("File deleted!");
-      });
-      //saveTask(uniqueTaskId, 'FG-SLOB', 'upload', 'error', '');
-      return;
-    }
+    let countDoc = 0;
+    let remainingDocsToInsert = 0;
 
-    console.log("data.data --- UPLOADED DATA",data.data)
+    countDoc = await Task.countDocuments({ email: req.body.email });
 
-    Task.insertMany(data.data);
+    //console.log("countDoc",countDoc);
 
-    fs.unlink(`public/xlsx/upload_${simulationID}.xlsx`, function (err) {
-      if (err) throw err;
-      // if no error, file has been deleted successfully
-      console.log("File deleted!");
-    });
+    //countDocs.then((results) => {
+        const WasteRiskDetailPendingUpdatesModel = Task;
+        let fileName = req.file.filename;
+        console.log("Excel file",fileName);
+        // let simulationID = fileName.split("upload_")[1];
+        // simulationID = simulationID.replace(".xlsx", "");
+        console.log("Excel file",fileName);
+        let workbook = XLSX.readFile(`./public/xlsx/${fileName}`);
+        let sheetNames = workbook.SheetNames;
 
-    //await saveTask(uniqueTaskId, 'FG-SLOB', 'upload', 'completed', '');
-    // res.send({ message: "Upload request initiated successfully" });
+        data = {
+          data: XLSX.utils.sheet_to_json(workbook.Sheets[sheetNames[0]], { raw: false, defval: "" }),
+        };
+
+        if (data.data.length === 0) {
+          res.status(422).send({ message: 'Invalid File, please check and upload correct file', error: 'INVALID_FILE' });
+          /** Delete Upload Temp File */
+          fs.unlink(`public/xlsx/${fileName}`, function (err) {
+            if (err) throw err;
+            // if no error, file has been deleted successfully
+            console.log("File deleted!","data.data.length === 0");
+          });
+          //saveTask(uniqueTaskId, 'FG-SLOB', 'upload', 'error', '');
+          return;
+        }
+
+        data.data.map(s => {
+          let isOverBoolean = (/true/).test(s.isOver);
+          s.isOver = isOverBoolean;
+          s.priority = Number(s.priority);
+          s.subTasks = JSON.parse(s.subTasks);
+          s.category = JSON.parse(s.category);
+          s.email = req.body.email;
+        });
+
+        
+
+        //console.log("data.data --- UPLOADED DATA",data.data);
+
+        remainingDocsToInsert = 10 - countDoc;
+
+        if(remainingDocsToInsert <= 0) res.status(500).send({  message : 'You have run out of Tasks'});
+        else {
+
+          let insertManyReq = Task.insertMany(data.data,{limit: remainingDocsToInsert});
+
+          insertManyReq.then((response)=>{
+            res.status(200).send({ message: "Upload request initiated successfully" });
+          }).catch((error)=>{
+            res.status(500).send({ message: error });
+          });
+
+          //console.log("insertMany",jhk)
+
+          fs.unlink(`public/xlsx/${fileName}`, function (err) {
+            if (err) throw err;
+            // if no error, file has been deleted successfully
+            console.log("File deleted!");
+          });
+        }
+
+   
+
   } catch (err) {
     console.log("Error /uploadTasks ", err);
     res.status(500).send({ message: err });
   }
 }
 
-module.exports = { fetchAll, search, add, edit, infoAndDetail, detail, taskDelete, statusToggle, detailsSave, downloadTasks, uploadTasks};
+module.exports = { fetchAll, search, add, edit, infoAndDetail, detail, taskDelete, statusToggle, detailsSave, downloadTasks, uploadTasks, removeImg, countDocumentsInCollection};

@@ -7,6 +7,7 @@ require('dotenv').config();
 const { auth } =require("../middlewares");
 let User = require("../models/users");
 let Hobby = require("../models/hobby");
+const nm = require("nodemailer");
 // const { RefreshToken } = require("../models/refreshToken.model");
 const RefreshToken = require("../models/refreshToken.model");
 const { Error } = require("mongoose");
@@ -25,10 +26,32 @@ userRoute.route("/register").post(async(req, res)=> {
     return res.status(400).json({ message : 'Password should be strong'})
   }
   try {
+
+    const transporter = nm.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false, // Use `true` for port 465, `false` for all other ports
+      auth: {
+        user: "sumit.nirgude2@gmail.com",
+        pass: "85951055",
+      },
+    });
+
+    let pw = bcrypt.hashSync(password, 8);
+
+    await transporter.sendMail({
+      from: 'sumit.nirgude@gmail.com',
+      to: email,
+      subject: 'Tasks ToDo Account Verification',
+      text: `Click the following link to verify http://localhost:4200/#/tasks/verify/${pw}`
+    });
+
+    return;
+
     await User.create({
       username : username,
       email : email,
-      password : bcrypt.hashSync(password, 8)
+      password : pw
     })
     .then(user => {
       const userId = user._id.toString();

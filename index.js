@@ -78,6 +78,7 @@ app.use(cors());
 app.use(express.static(path.join(__dirname, "dist/todo")));
 app.use(express.static(path.join(__dirname,"public")));
 app.use(express.static(path.join(__dirname,"public/images")));
+app.use(express.static(path.join(__dirname,"public/xlsx")));
 app.use(express.static(path.join(__dirname,"dist")));
 app.use(express.urlencoded({ extended : true }));
 app.use(express.json());
@@ -124,10 +125,8 @@ const fileFilterTaskExcel = (req, file, cb) => {
   }
 };
 
-app.use(
-  multer({ storage: fileStorage, fileFilter: fileFilter }).single('taskphoto'),
-  multer({ storage: fileStorageTaskExcel }).single('taskexcel')
-);
+// app.use(multer({ storage: fileStorage, fileFilter: fileFilter }).single('taskphoto'));
+// app.use(multer({ storage: fileStorageTaskExcel }).array('taskexcel'));
 
 
 // var storage = multer.diskStorage({
