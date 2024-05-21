@@ -7,7 +7,7 @@ require('dotenv').config();
 const { auth } =require("../middlewares");
 let User = require("../models/users");
 let Hobby = require("../models/hobby");
-const nm = require("nodemailer");
+const nodemailer = require("nodemailer");
 // const { RefreshToken } = require("../models/refreshToken.model");
 const RefreshToken = require("../models/refreshToken.model");
 const { Error } = require("mongoose");
@@ -22,49 +22,116 @@ userRoute.route("/register").post(async(req, res)=> {
   // res.status(200).send({
   //   username, email, password
   // })
+
+  try {
+  
+  User.findOne({ email : email}, (err,data) => {
+      if(err) return res.status(200).send({message: 'Email already exists'});
+      // else return res.status(500).send({message: 'Email already exists'});
+  });
+
   if(password.length < 6) {
     return res.status(400).json({ message : 'Password should be strong'})
   }
-  try {
 
-    const transporter = nm.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false, // Use `true` for port 465, `false` for all other ports
-      auth: {
-        user: "sumit.nirgude2@gmail.com",
-        pass: "85951055",
-      },
-    });
 
+    let otp = bcrypt.hashSync(password, 10);
     let pw = bcrypt.hashSync(password, 8);
-
-    await transporter.sendMail({
-      from: 'sumit.nirgude@gmail.com',
-      to: email,
-      subject: 'Tasks ToDo Account Verification',
-      text: `Click the following link to verify http://localhost:4200/#/tasks/verify/${pw}`
-    });
-
-    return;
 
     await User.create({
       username : username,
       email : email,
+      verifySecret : otp,
+      verifyStatus : false,
       password : pw
     })
     .then(user => {
-      const userId = user._id.toString();
-      Hobby.create({
-        name: "Walking",
-        priority: 1
-      })
-      res.status(200).json({ message : 'User Created successfully', user})
+      var transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false, // Use `true` for port 465, `false` for all other ports
+        auth: {
+          user: "sumit.nirgude2@gmail.com",
+          pass: "srrs gkmh milb rhfy",
+        },
+      });
+
+      // var transporter = nodemailer.createTransport({
+      //   host: "sandbox.smtp.mailtrap.io",
+      //   port: 2525,
+      //   auth: {
+      //     user: "f90af798e87040",
+      //     pass: "75048911b98892"
+      //   }
+      // });
+
+      const configObj = {
+        from: 'sumit.nirgude2@gmail.com',
+        to: email,
+        subject: 'Tasks ToDo Account Verification',
+        text: `Click the following link to verify http://localhost:4200/#/auth/verify/${email}/${otp}`
+      }
+
+      transporter.sendMail(configObj, (error,info) => {
+        if (error) {
+          console.log('Error',error);
+          res.status(500).send({ error });
+        } else {
+          console.log('Email sent: ' + info.response);
+          res.status(200).send({ message : 'User Created successfully', user});
+        }
+        // if (err) {
+        //   return res.status(500).json({ message : err});
+        // } else {
+        //   return res.status(200).json({ message : 'Email sent successfully', info});
+        // }
+      });
+
+      //
     });
   } catch (err) {
-    res.status(401).json({ message : err, error: err})
+    //res.status(401).send({ message : err, error: err})
   }
 });
+
+userRoute.route("/verifyemail").post((req, res) => {
+  var { email, verifySecret } = req.body;
+  try {
+    User.find({ email : email }) .exec(async (err, user) =>{
+      var user = user[0];
+
+     
+      // res.status(200).send({ user : data[0]});
+        if(err) {
+          return res.status(500).send({ message : err});
+        }
+        if(!user) {
+          return res.status(500).send({ message : `User not found with email '${email}'` })
+        }
+
+          User.findOneAndUpdate({ verifySecret: verifySecret, verifyStatus: false}, {$set: {verifyStatus: true, verifySecret: ""}}, {$unset: {verifySecret: 1}}) .exec(async (verifyErr, verifyData) => {
+            console.log("verifyData", verifyData)
+
+            if(verifyErr) {
+              return res.status(500).send(err);
+            }
+
+            if(!verifyData) return res.status(500).send({ message : `User verified already`});
+            else res.status(200).send({ message : `User verified successfully` });
+
+              // if(verifyErr) {
+              //   return res.status(500).send({err, message: "User verified already"});
+              // }
+              // else return res.status(200).send({message: 'User Verified Successfully'});
+          });
+        
+    });
+  } catch (err) {
+    console.error(err);
+  }
+ 
+});
+
 
 userRoute.route("/signin").post((req, res)=>{
   var { email, password } = req.body;

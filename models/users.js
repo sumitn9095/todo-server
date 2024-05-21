@@ -1,3 +1,4 @@
+const { verify } = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
@@ -27,6 +28,14 @@ let User = new Schema(
     created: {
       type: Date,
       default: Date.now
+    },
+    verifySecret: {
+      type: String,
+      default: ""
+    },
+    verifyStatus: {
+      type: Boolean,
+      default: false
     }
   },
   {
