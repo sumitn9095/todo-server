@@ -22,6 +22,28 @@ let fileStorage = multer.diskStorage({
     },
 })
 
+const limits = {
+  fileSize: 1024 * 1024 * 1.5
+}
+
+const uploadTasksExcel = multer({
+  storage: fileStorage,
+  limits: limits,
+  fileFilter: (req, file, cb) => {
+      let fileType = /png|jpg|jpeg/;
+      let mimeType = fileType.test(file.mimetype);
+      let extname = fileType.test(path.extname(file.originalname).toLocaleLowerCase());
+      if (mimeType && extname) {
+          cb(null, true)
+      } else {
+          req.fileValidationError = "File upload only supports, png, jpg, jpeg only";
+          return cb(null, false, req.fileValidationError);
+      }
+ }
+})
+
+
+
 const uploadTaskPhoto = multer({ storage: fileStorage, fileFilter: fileFilter});
 
 module.exports = uploadTaskPhoto;

@@ -251,6 +251,7 @@ taskDelete = (req, res, next) => {
 
 downloadTasks = async(req, res, next) => {
   const { email,category,query} = req.body;
+
   try {
       var taskList = []
       //const taskList = await allTasksFetch(email);
@@ -311,7 +312,11 @@ downloadTasks = async(req, res, next) => {
         res.end();
       });
   } catch (error) {
-    res.send({ error: error.message });
+    if (req.fileValidationError) {
+      res.status(500).send({ message: req.fileValidationError});
+    } else {
+      res.send({ error: error.message });
+    }
   }
 
   // worksheet.columns = Object.keys(columnJSON).map((column, index) => {
@@ -403,8 +408,12 @@ uploadTasks = async(req, res, next) => {
    
 
   } catch (err) {
-    console.log("Error /uploadTasks ", err);
-    res.status(500).send({ message: err });
+    if (req.fileValidationError) {
+      res.status(500).send({ message: req.fileValidationError});
+    } else {
+      console.log("Error /uploadTasks ", err);
+      res.status(500).send({ message: err });
+    }
   }
 }
 
