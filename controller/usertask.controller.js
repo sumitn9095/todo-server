@@ -101,17 +101,17 @@ add = (req, res, next) => {
 
 edit = async (req, res, next) => {
   const { id, newTaskName } = req.body;
-    Task.findByIdAndUpdate(id, {$set : { taskname : newTaskName}}, (err, task) => {
+    Task.findByIdAndUpdate(id, {$set : { taskname : newTaskName}}, (err, data) => {
       if(err) res.status(400).send({ err })
-      res.status(200).send({ task, message: "Task Name edited successfully."})
+      res.status(200).send({ taskname: newTaskName, message: "Task Name edited successfully."})
     })
 };
 
 statusToggle = (req, res, next)=>{
   const {id, isOver} = req.body;
-  Task.findByIdAndUpdate(id, {$set : { isOver : isOver }}, (err, task) => {
+  Task.findByIdAndUpdate(id, {$set : { isOver : isOver }}, (err, data) => {
     if(err) return res.status(500).send({ err, message : "Error on Status toggled"})
-    res.status(200).send({ task, message : "Status toggled"});
+    res.status(200).send({ status: isOver, message : "Status toggled"});
   })
 }
 
@@ -134,7 +134,7 @@ infoAndDetail = (req, res, next) => {
 
 detail = (req, res, next) => {
     TaskDetails.findOne({taskId: req.params.id}, (err2, taskDetails) => {
-     console.log("Task-details-----",err2, taskDetails)
+    // console.log("Task-details-----",err2, taskDetails)
       if(err2) {
         return res.status(500).send({ err2, message : "Error fetching task details"})
       } else {
@@ -161,7 +161,7 @@ countDocumentsInCollection = (req,res,next) => {
 }
 
 removeImg = (req, res, next) => {
-  console.log("removeImg",req);
+ // console.log("removeImg",req);
   Task.findByIdAndUpdate(req.params.id, {$set: {imagePath : ""}}, (err, task) => {
     if(err) res.status(500).send({err, message: "Error removing the task image"});
     else res.status(200).send({ task, message: "Task image successfully removed"});
@@ -169,12 +169,12 @@ removeImg = (req, res, next) => {
 }
 
 detailsSave = (req, res, next) => {
-  Task.findOne({ email : req.body.email, taskname : req.body.taskname}, (err0, data0) => {
+  Task.findById(req.body.id, (err0, data0) => {
    const data_body = JSON.parse(JSON.stringify(req.body));
     if(err0) return res.status(500).send({ err0, message : "Error fetching user"});
-    console.log("data0----------",data0);
+   // console.log("data0----------",data0);
     if(data0.email.length) {
-     console.log("detailsSave taskname ---------------",data_body);
+    // console.log("detailsSave taskname ---------------",data_body);
      const { taskname, date, dueDate, description, subTasks, isOver, priority, category } = data_body;
       // let isOverBoolean = isOver === 'true' ? true : false;
       // let priorityNum = Number(priority);
@@ -198,10 +198,10 @@ detailsSave = (req, res, next) => {
       if(category === "") obj.category = [];
       if(subTasks === "") obj.subTasks = [];
 
-      console.log("Updated - Task - Object",obj);
+     // console.log("Updated - Task - Object",obj);
 
       Task.findByIdAndUpdate(data0._id , {$set: obj}, (err, data) => {
-        console.log("data0--dd--xx------",data);
+       // console.log("data0--dd--xx------",data);
         if(err) return res.status(500).send({ err, message : "Error creating Task Details"});
         res.status(200).send({ data, category, message : "Updated Task Details"});
       });
@@ -225,14 +225,12 @@ detailsSave = (req, res, next) => {
 }
 
 taskDelete = (req, res, next) => {
-  console.log("delete route", req.params.id);
-  Task.findOneAndRemove(req.params.id, (error, data) => {
+ // console.log("delete route", req.params.id);
+  Task.findByIdAndDelete(req.params.id, (error, data) => {
     if (error) {
-      return next(error);
+      res.status(500).json(error);
     } else {
-      res.status(200).json({
-        msg: data,
-      });
+      res.status(200).json(data);
     }
   });
 };
@@ -261,7 +259,7 @@ downloadTasks = async(req, res, next) => {
         taskList = await queryTasksWithoutCategory(email,category,query);
       }
 
-      console.log("taskList",email, taskList);
+     // console.log("taskList",email, taskList);
       let workbook = new excel.Workbook();
       let worksheet = workbook.addWorksheet("data", {
         views: [{ state: "frozen", xSplit: 1, ySplit: 1 }],
@@ -272,7 +270,7 @@ downloadTasks = async(req, res, next) => {
       // delete columnJSON.subTasks;
       // delete columnJSON.imagePath;
 
-      console.log("columnJSON",columnJSON);
+     // console.log("columnJSON",columnJSON);
 
       //var column_name = [];
 
@@ -347,10 +345,10 @@ uploadTasks = async(req, res, next) => {
     //countDocs.then((results) => {
         const WasteRiskDetailPendingUpdatesModel = Task;
         let fileName = req.file.filename;
-        console.log("Excel file",fileName);
+      //  console.log("Excel file",fileName);
         // let simulationID = fileName.split("upload_")[1];
         // simulationID = simulationID.replace(".xlsx", "");
-        console.log("Excel file",fileName);
+       // console.log("Excel file",fileName);
         let workbook = XLSX.readFile(`./public/xlsx/${fileName}`);
         let sheetNames = workbook.SheetNames;
 
@@ -364,7 +362,7 @@ uploadTasks = async(req, res, next) => {
           fs.unlink(`public/xlsx/${fileName}`, function (err) {
             if (err) throw err;
             // if no error, file has been deleted successfully
-            console.log("File deleted!","data.data.length === 0");
+           // console.log("File deleted!","data.data.length === 0");
           });
           //saveTask(uniqueTaskId, 'FG-SLOB', 'upload', 'error', '');
           return;
@@ -401,7 +399,7 @@ uploadTasks = async(req, res, next) => {
           fs.unlink(`public/xlsx/${fileName}`, function (err) {
             if (err) throw err;
             // if no error, file has been deleted successfully
-            console.log("File deleted!");
+            //console.log("File deleted!");
           });
         }
 
@@ -411,7 +409,7 @@ uploadTasks = async(req, res, next) => {
     if (req.fileValidationError) {
       res.status(500).send({ message: req.fileValidationError});
     } else {
-      console.log("Error /uploadTasks ", err);
+     // console.log("Error /uploadTasks ", err);
       res.status(500).send({ message: err });
     }
   }

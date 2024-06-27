@@ -33,6 +33,10 @@ let User = new Schema(
       type: String,
       default: ""
     },
+    resetSecret: {
+      type: String,
+      default: ""
+    },
     verifyStatus: {
       type: Boolean,
       default: false

@@ -8,6 +8,9 @@ const { auth } =require("../middlewares");
 let User = require("../models/users");
 let Hobby = require("../models/hobby");
 const nodemailer = require("nodemailer");
+const hbs = require("nodemailer-express-handlebars");
+
+
 // const { RefreshToken } = require("../models/refreshToken.model");
 const RefreshToken = require("../models/refreshToken.model");
 const { Error } = require("mongoose");
@@ -17,25 +20,147 @@ userRoute.route("/").get((req, res) => {
   res.json("all users", res.data);
 });
 
-userRoute.route("/register").post(async(req, res)=> {
+const sendEmail = async(email, type,successMssg, userData,otp,res) => {
+
+  var transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false, // Use `true` for port 465, `false` for all other ports
+    auth: {
+      user: "sumit.nirgude2@gmail.com",
+      pass: "srrs gkmh milb rhfy",
+    },
+  });
+
+  const handlebarOptions = {
+    viewEngine: {
+        partialsDir: path.resolve('./views/'),
+        defaultLayout: false,
+    },
+    viewPath: path.resolve('./views/'),
+  };
+
+  let link = `http://localhost:4200/#/auth/${type === 'register' ? 'verify' : 'forgot-password' }/${email}/${otp}`;
+
+  transporter.use('compile', hbs(handlebarOptions))
+  const configObj = {
+    from: 'sumit.nirgude2@gmail.com',
+    to: email,
+    template: "../email/index",
+    subject: `${type === 'register' ? 'Account Verification' : 'Account Forgot Password Reset'}`,
+    context: {
+      title: `${type === 'register' ? 'Account Verification' : 'Account Forgot Password Reset'}`,
+      link: link,
+      message: `Hello ${email}, Please click this link to verify ${type === 'register' ? 'your account' : 'the forgot password request created by you'} ${link}, or click the below button.`
+    }
+  }
+
+  transporter.sendMail(configObj, (error,info) => {
+    if (error) {
+      res.status(500).send({ error });
+    } else {
+      res.status(200).send({ message : successMssg, userData});
+    }
+  });
+}
+
+
+// Reset Password --------
+userRoute.route("/reset").post(async(req,res)=>{
+  var {email, password0, password, password2} = req.body;
+  User.find({email: email},(err,data)=>{
+    if(err) return res.status(500).send({message: 'Email doesnt exists'});
+    if(password0 !== data.password) return res.status(500).send({message: 'Current password not matching'});
+    else {
+      if(password !== password2) return res.status(500).send({message: 'New password not matching'});
+      res.status(200).send({message: 'Password Reset Successful'});
+    }
+  })
+})
+
+// Forget Password ---------
+// Forget Password -- 1. Send reset password link to 'email'
+userRoute.route("/forgotPassword").post(async(req, res)=> {
+  var { email } = req.body;
+  let otp = generateUrlOtp(email);
+  //console.log("otp",otp)
+  try {
+    User.findOneAndUpdate({ email : email}, { $set: { resetSecret: otp} }, (err,data) => {
+        //console.log("forgotPassword",err,data)
+        if(err) return res.status(500).send({message: 'Email doesnt exists'});
+        else {
+          sendEmail(email, 'forgotPassword','Account Forgot Password Reset link created', data, otp, res);
+        }
+    });
+  } catch (err) {
+    console.error(err);
+  }
+});
+// Forget Password -- 2. Verify the Forget password URL link, when link clicked
+userRoute.route("/verifyforgetpassword").post((req, res) => {
+  var { email, resetSecret } = req.body;
+  try {
+    User.find({ email : email }) .exec(async (err, user) => {
+        var user = user[0];
+        if(err) return res.status(500).send({ message : err});
+        if(!user) return res.status(500).send({ message : `User not found with email '${email}'` });
+        User.find({ email : email, resetSecret: resetSecret},(err, verifyData) => {
+          let data = verifyData[0];
+          console.log("Reset Data", data);
+          if(err) return res.status(500).send(err);
+          if(!data) return res.status(500).send({ message : `Account Password Reseted already. For reseting the account password, geenrate and send the reset link again.`});
+          else res.status(200).send({ message : `Forgot Password Request Verified` });
+        });
+    });
+  } catch (err) {
+    console.error(err);
+  }
+});
+// Forget Password -- 3. Reset password, after matching the 'new password' & 'confirm password'.
+userRoute.route("/forgotPasswordReset").post(async(req,res)=>{
+  var {email, resetSecret, password, password2} = req.body;
+  User.findOneAndUpdate({email: email, resetSecret: resetSecret}, {$set: {resetSecret: ""}}, {$unset: {resetSecret: 1}}, (err,data)=>{
+    if(err) return res.status(500).send({message: 'Email doesnt exists'});
+    else {
+      if(password.length < 6) return res.status(400).json({ message : 'Password should be strong'});
+      if(password !== password2) return res.status(500).send({message: 'New password not matching'});
+      res.status(200).send({message: 'Password Reset Successful'});
+    }
+  })
+})
+
+
+
+const generateUrlOtp = (password) => {
+  let otpRaw = bcrypt.hashSync(password, 13);
+  let otpRaw2;
+  let otpRaw3;
+  let otp;
+
+  if(otpRaw.includes("/")) otpRaw2 = otpRaw.replaceAll("/",'');
+  else otpRaw2 = otpRaw;
+  if(otpRaw2.includes("\\")) otp = otpRaw2.replaceAll("\\",'');
+  else otpRaw3 = otpRaw2;
+  if(otpRaw3.includes("$")) otp = otpRaw3.replaceAll("$",'');
+  else otp = otpRaw3;
+  return otp;
+}
+
+userRoute.route("/register").post(async(req, res, next)=> {
   var { username, email, password } = req.body;
   // res.status(200).send({
   //   username, email, password
   // })
 
   try {
-  
   User.findOne({ email : email}, (err,data) => {
       if(err) return res.status(200).send({message: 'Email already exists'});
-      // else return res.status(500).send({message: 'Email already exists'});
   });
-
   if(password.length < 6) {
     return res.status(400).json({ message : 'Password should be strong'})
   }
-
-
-    let otp = bcrypt.hashSync(password, 10);
+  
+    let otp = generateUrlOtp(password);
     let pw = bcrypt.hashSync(password, 8);
 
     await User.create({
@@ -43,51 +168,11 @@ userRoute.route("/register").post(async(req, res)=> {
       email : email,
       verifySecret : otp,
       verifyStatus : false,
+      resetSecret : '',
       password : pw
     })
     .then(user => {
-      var transporter = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 587,
-        secure: false, // Use `true` for port 465, `false` for all other ports
-        auth: {
-          user: "sumit.nirgude2@gmail.com",
-          pass: "srrs gkmh milb rhfy",
-        },
-      });
-
-      // var transporter = nodemailer.createTransport({
-      //   host: "sandbox.smtp.mailtrap.io",
-      //   port: 2525,
-      //   auth: {
-      //     user: "f90af798e87040",
-      //     pass: "75048911b98892"
-      //   }
-      // });
-
-      const configObj = {
-        from: 'sumit.nirgude2@gmail.com',
-        to: email,
-        subject: 'Tasks ToDo Account Verification',
-        text: `Click the following link to verify http://localhost:4200/#/auth/verify/${email}/${otp}`
-      }
-
-      transporter.sendMail(configObj, (error,info) => {
-        if (error) {
-          console.log('Error',error);
-          res.status(500).send({ error });
-        } else {
-          console.log('Email sent: ' + info.response);
-          res.status(200).send({ message : 'User Created successfully', user});
-        }
-        // if (err) {
-        //   return res.status(500).json({ message : err});
-        // } else {
-        //   return res.status(200).json({ message : 'Email sent successfully', info});
-        // }
-      });
-
-      //
+      sendEmail(email,'register','User Created successfully',user,otp,res);
     });
   } catch (err) {
     //res.status(401).send({ message : err, error: err})
@@ -99,39 +184,19 @@ userRoute.route("/verifyemail").post((req, res) => {
   try {
     User.find({ email : email }) .exec(async (err, user) =>{
       var user = user[0];
-
-     
-      // res.status(200).send({ user : data[0]});
-        if(err) {
-          return res.status(500).send({ message : err});
-        }
-        if(!user) {
-          return res.status(500).send({ message : `User not found with email '${email}'` })
-        }
-
-          User.findOneAndUpdate({ verifySecret: verifySecret, verifyStatus: false}, {$set: {verifyStatus: true, verifySecret: ""}}, {$unset: {verifySecret: 1}}) .exec(async (verifyErr, verifyData) => {
-            console.log("verifyData", verifyData)
-
-            if(verifyErr) {
-              return res.status(500).send(err);
-            }
-
-            if(!verifyData) return res.status(500).send({ message : `User verified already`});
-            else res.status(200).send({ message : `User verified successfully` });
-
-              // if(verifyErr) {
-              //   return res.status(500).send({err, message: "User verified already"});
-              // }
-              // else return res.status(200).send({message: 'User Verified Successfully'});
-          });
-        
+        if(err) return res.status(500).send({ message : err});
+        // if(!user) return res.status(500).send({ message : `User not found with email '${email}'` });
+        User.findOneAndUpdate({ verifySecret: verifySecret, verifyStatus: false}, {$set: {verifyStatus: true, verifySecret: ""}}, {$unset: {verifySecret: 1}}) .exec(async (verifyErr, verifyData) => {
+          if(verifyErr) return res.status(500).send(err);
+          if(!verifyData) return res.status(500).send({ message: `User verified already`});
+          else res.status(200).send({ message: `User verified successfully` });
+        });
     });
   } catch (err) {
-    console.error(err);
+    console.log("Verify Emal Error >>> ")
   }
  
 });
-
 
 userRoute.route("/signin").post((req, res)=>{
   var { email, password } = req.body;
@@ -162,7 +227,6 @@ userRoute.route("/signin").post((req, res)=>{
     })
   })
 })
-
 
 exports.refreshToken = async (req, res) => {
   const { refreshToken: requestToken } = req.body;
