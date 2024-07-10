@@ -68,12 +68,18 @@ const sendEmail = async(email, type,successMssg, userData,otp,res) => {
 // Reset Password --------
 userRoute.route("/reset").post(async(req,res)=>{
   var {email, password0, password, password2} = req.body;
-  User.find({email: email},(err,data)=>{
-    if(err) return res.status(500).send({message: 'Email doesnt exists'});
-    if(password0 !== data.password) return res.status(500).send({message: 'Current password not matching'});
+  User.findOne({email: email},(err,data)=>{
+    console.log('reset--data',data);
+    var pwIsValid = bcrypt.compareSync(password0, data.password);
+    if(err || data === null) return res.status(500).send({message: 'Email doesnt exists'});
+    if(!pwIsValid) return res.status(500).send({message: 'Current password not matching'});
+    if(password !== password2) return res.status(500).send({message: 'New password not matching'});
     else {
-      if(password !== password2) return res.status(500).send({message: 'New password not matching'});
-      res.status(200).send({message: 'Password Reset Successful'});
+      let pw = bcrypt.hashSync(password, 8);
+      User.findOneAndUpdate({email: email}, {$set: {password: pw}},(err2,data2)=>{
+        if(err2) return res.status(500).send({message: 'Some Error occured while reseting your account password'});
+        else res.status(200).send({message: 'Password Reset Successful'});
+      })
     }
   })
 })
@@ -85,13 +91,20 @@ userRoute.route("/forgotPassword").post(async(req, res)=> {
   let otp = generateUrlOtp(email);
   //console.log("otp",otp)
   try {
-    User.findOneAndUpdate({ email : email}, { $set: { resetSecret: otp} }, (err,data) => {
-        //console.log("forgotPassword",err,data)
-        if(err) return res.status(500).send({message: 'Email doesnt exists'});
-        else {
-          sendEmail(email, 'forgotPassword','Account Forgot Password Reset link created', data, otp, res);
-        }
-    });
+    // User.findOne({ email : email}, (err,data) => {
+    //   if(err) return res.status(500).send({message: 'Email doesnt exists'});
+    //   else {
+    //     console.log("data--->",data)
+        User.findOneAndUpdate({ email : email}, { $set: { resetSecret: otp} }, (err2,data2) => {
+            //console.log("forgotPassword",err,data)
+            console.log("data--->",data2)
+            if(err2 || data2 === null) return res.status(500).send({message: 'Email doesnt exists'});
+            else {
+              sendEmail(email, 'forgotPassword','Account Forgot Password Reset link created', data2, otp, res);
+            }
+        });
+    //   }
+    // });
   } catch (err) {
     console.error(err);
   }
@@ -195,7 +208,6 @@ userRoute.route("/verifyemail").post((req, res) => {
   } catch (err) {
     console.log("Verify Emal Error >>> ")
   }
- 
 });
 
 userRoute.route("/signin").post((req, res)=>{
