@@ -1,13 +1,14 @@
 const express = require("express");
 (path = require("path")),
-(mongoose = require("mongoose")),
-(cors = require("cors")),
-(dbConfig = require("./database/db"));
+  (mongoose = require("mongoose")),
+  (cors = require("cors")),
+  (dbConfig = require("./database/db"));
 const helmet = require("helmet");
 let multer = require("multer");
-
 const test = require("./test");
 const app = express();
+const swaggerUI = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
 
 // app.set("view engine", "ejs");
 
@@ -44,7 +45,7 @@ mongoose
     //     .catch(console.error);
     //   //res.send(result);
     // });
-   // console.log("Connected to DB",client);
+    // console.log("Connected to DB",client);
   })
   .catch(console.error);
 
@@ -73,17 +74,22 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.use(helmet({crossOriginResourcePolicy: false}));
+app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors());
 app.use(express.static(path.join(__dirname, "dist/todo")));
-app.use(express.static(path.join(__dirname,"public")));
-app.use(express.static(path.join(__dirname,"public/images")));
-app.use(express.static(path.join(__dirname,"public/xlsx")));
-app.use(express.static(path.join(__dirname,"dist")));
-app.use(express.urlencoded({ extended : true }));
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public/images")));
+app.use(express.static(path.join(__dirname, "public/xlsx")));
+app.use(express.static(path.join(__dirname, "dist")));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+// Serve Swagger documentation
+app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
+app.get('/api/resource/:id', (req, res) => {
+  // Your route logic goes here
+});
 
 const fileStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -155,4 +161,4 @@ app.listen(PORT, () => {
 });
 
 
-console.log("test.pathInfo--------->",test.pathInfo);
+console.log("test.pathInfo--------->", test.pathInfo);

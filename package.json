@@ -28,6 +28,8 @@
     "nodemailer": "^6.9.13",
     "nodemailer-express-handlebars": "^6.1.2",
     "nodemon": "^2.0.15",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^9.0.1",
     "xlsx": "^0.18.5"
   },
